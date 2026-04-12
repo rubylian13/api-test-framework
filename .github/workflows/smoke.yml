@@ -1,0 +1,42 @@
+# ── 觸發條件：每次 PR 或 push 到 main ──────────────
+name: Smoke Tests (PR Gate)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  smoke:
+    name: Run smoke tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 把 repo 的 code 拉下來
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 安裝 Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'            # 快取 pip，加速後續執行
+
+      # 3. 安裝依賴
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 4. 只跑 smoke tests（快，30 秒內跑完）
+      - name: Run smoke tests
+        run: pytest tests/ -m smoke -v --tb=short
+
+      # 5. 上傳測試結果（失敗時也保留 log）
+      - name: Upload test results
+        if: always()              # 不管成功失敗都執行
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: reports/
+          retention-days: 7

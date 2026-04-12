@@ -1,0 +1,45 @@
+# ── 觸發條件：每天凌晨 2 點（UTC）自動執行 ──────────
+name: Full Regression (Nightly)
+
+on:
+  schedule:
+    - cron: '0 18 * * *'        # UTC 18:00 = 台灣時間凌晨 2:00
+  workflow_dispatch:             # 也可以手動在 GitHub 上按按鈕觸發
+
+jobs:
+  regression:
+    name: Run full regression
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 跑全部測試，包含 regression / negative / auth / crud
+      - name: Run full regression tests
+        run: pytest tests/ -v --tb=long
+
+      # 產生 Allure 報告
+      - name: Install Allure
+        if: always()
+        run: |
+          pip install allure-pytest
+          pytest tests/ --alluredir=reports/allure-results || true
+
+      # 上傳 Allure 原始資料（可用 allure-report GitHub Action 轉成網頁）
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ github.run_number }}
+          path: reports/allure-results/
+          retention-days: 30
